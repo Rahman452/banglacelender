@@ -83,6 +83,310 @@
         }
         .menu-item:hover { background: var(--current-month-bg); }
 
+        .nav-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 15px 0;
+            gap: 10px;
+        }
+
+        .nav-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            color: var(--primary);
+            font-size: 0.7rem;
+            font-weight: bold;
+            min-width: 60px;
+        }
+
+        .nav-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--primary);
+            color: var(--primary);
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-bottom: 2px;
+        }
+        .nav-group:hover .nav-btn { background: var(--primary); color: white; }
+
+        .calendar-header { text-align: center; flex: 1; }
+        #eng-month { font-size: 1.3rem; font-weight: 800; color: var(--primary); margin: 0; }
+        #bn-info { font-size: 1.1rem; color: #ff7675; font-weight: bold; }
+
+        .grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+        .weekday { text-align: center; font-weight: bold; color: var(--primary); font-size: 0.8rem; padding-bottom: 5px; }
+        
+        .day {
+            aspect-ratio: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            position: relative;
+        }
+
+        .current-month { background: var(--current-month-bg); font-weight: bold; }
+        .other-month { background: var(--other-month-bg); color: var(--text-muted); pointer-events: none; }
+        .is-today { background: linear-gradient(135deg, #6c5ce7, #a29bfe) !important; color: white !important; }
+
+        .modal-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); z-index: 9999; justify-content: center; align-items: center;
+        }
+        .modal-box {
+            background: var(--bg-card); width: 85%; max-width: 300px;
+            padding: 30px 20px; border-radius: 25px; text-align: center; 
+            border: 2px solid var(--primary); animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        
+        #popEng { font-size: 1.8rem; margin-bottom: 10px; }
+        #popBn { font-size: 1.5rem; color: #ff7675; }
+        .close-pop { margin-top: 20px; background: var(--primary); color: white; border: none; padding: 10px 25px; border-radius: 50px; cursor: pointer; }
+    </style>
+</head>
+<body onclick="hideMenu()">
+
+<div class="calendar-card" onclick="event.stopPropagation()">
+    <div class="top-action-bar">
+        <div class="search-group">
+            <select id="mSelect" class="custom-select" onchange="jump()"></select>
+            <select id="ySelect" class="custom-select" onchange="jump()"></select>
+            <button class="today-btn" onclick="goToday()">আজ</button>
+        </div>
+        <div class="menu-container">
+            <div class="dots-btn" onclick="toggleMenu(event)">⋮</div>
+            <div id="dropMenu" class="dropdown-menu">
+                <div class="menu-item" onclick="showHolidays()"><span>📅</span> ছুটির তালিকা</div>
+                <div class="menu-item" onclick="setTheme('light')"><span>☀️</span> লাইট মোড</div>
+                <div class="menu-item" onclick="setTheme('dark')"><span>🌙</span> ডার্ক মোড</div>
+                <div class="menu-item" onclick="shareApp()"><span>🔗</span> শেয়ার করুন</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="nav-controls">
+        <div class="nav-group" onclick="move(-1)">
+            <div class="nav-btn">❮</div>
+            <span>অতীতে যান</span>
+        </div>
+        
+        <div class="calendar-header">
+            <h2 id="eng-month"></h2>
+            <div id="bn-info"></div>
+        </div>
+
+        <div class="nav-group" onclick="move(1)">
+            <div class="nav-btn">❯</div>
+            <span>ভবিষ্যতে যান</span>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="weekday">শনি</div><div class="weekday">রবি</div><div class="weekday">সোম</div>
+        <div class="weekday">মঙ্গল</div><div class="weekday">বুধ</div><div class="weekday">বৃহ</div>
+        <div class="weekday">শুক্র</div>
+    </div>
+    <div id="daysGrid" class="grid"></div>
+</div>
+
+<div id="modal" class="modal-overlay" onclick="closeModal()">
+    <div class="modal-box" onclick="event.stopPropagation()">
+        <div style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 10px;">তারিখ বিবরণ</div>
+        <h2 id="popEng" style="margin:0; color:var(--primary);"></h2>
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
+        <h2 id="popBn" style="margin:0;"></h2>
+        <button class="close-pop" onclick="closeModal()">ঠিক আছে</button>
+    </div>
+</div>
+
+<script>
+    let currentD = new Date();
+    const bnMonths = ["বৈশাখ", "জ্যৈষ্ঠ", "আষাঢ়", "শ্রাবণ", "ভাদ্র", "আশ্বিন", "কার্তিক", "অগ্রহায়ণ", "পৌষ", "মাঘ", "ফাল্গুন", "চৈত্র"];
+    const engMonths = ["JANUARY", "FEBRUARY", "MARCH", "APRIL", "MAY", "JUNE", "JULY", "AUGUST", "SEPTEMBER", "OCTOBER", "NOVEMBER", "DECEMBER"];
+    const bnNums = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
+
+    function toBn(n) { return n.toString().split('').map(d => bnNums[d] || d).join(''); }
+
+    function getBnDate(d, m, y) {
+        let bYear = y - 593;
+        let ref = new Date(y, 3, 14);
+        let diff = Math.floor((new Date(y, m, d) - ref) / 86400000);
+        if (diff < 0) { bYear--; ref = new Date(y-1, 3, 14); diff = Math.floor((new Date(y, m, d) - ref) / 86400000); }
+        let mIdx = 0, bDate = diff + 1;
+        const limits = [31, 31, 31, 31, 31, 31, 30, 30, 30, 30, 30, 30];
+        for (let i = 0; i < 12; i++) {
+            let lim = (i === 10 && ((y % 4 === 0 && y % 100 !== 0) || y % 400 === 0)) ? 31 : limits[i];
+            if (bDate <= lim) { mIdx = i; break; }
+            bDate -= lim;
+        }
+        return { d: toBn(bDate), m: bnMonths[mIdx], y: toBn(bYear) };
+    }
+
+    function render() {
+        const y = currentD.getFullYear(), m = currentD.getMonth();
+        document.getElementById("eng-month").innerText = `${engMonths[m]} ${y}`;
+        const b = getBnDate(1, m, y);
+        document.getElementById("bn-info").innerText = `${b.m} ${b.y} সন`;
+        document.getElementById("mSelect").value = m;
+        document.getElementById("ySelect").value = y;
+
+        const grid = document.getElementById("daysGrid");
+        grid.innerHTML = "";
+
+        const firstDay = new Date(y, m, 1).getDay();
+        const startOffset = (firstDay + 1) % 7;
+        const lastDate = new Date(y, m + 1, 0).getDate();
+        const prevLastDate = new Date(y, m, 0).getDate();
+
+        for (let i = startOffset; i > 0; i--) {
+            const box = document.createElement("div");
+            box.className = "day other-month";
+            box.innerText = prevLastDate - i + 1;
+            grid.appendChild(box);
+        }
+
+        for (let i = 1; i <= lastDate; i++) {
+            const today = new Date();
+            const isToday = i === today.getDate() && m === today.getMonth() && y === today.getFullYear();
+            const bn = getBnDate(i, m, y);
+            
+            const box = document.createElement("div");
+            box.className = `day current-month ${isToday ? 'is-today' : ''}`;
+            box.innerHTML = `<span>${i}</span><span style="font-size:0.6rem">${bn.d}</span>`;
+            box.onclick = () => openModal(i, m, y);
+            grid.appendChild(box);
+        }
+
+        const remaining = 42 - grid.children.length;
+        for (let j = 1; j <= remaining; j++) {
+            const box = document.createElement("div");
+            box.className = "day other-month";
+            box.innerText = j;
+            grid.appendChild(box);
+        }
+    }
+
+    function openModal(d, m, y) {
+        const bn = getBnDate(d, m, y);
+        document.getElementById("popEng").innerText = `${d} ${engMonths[m]} ${y}`;
+        document.getElementById("popBn").innerText = `${bn.d} ${bn.m} ${bn.y} সন`;
+        document.getElementById("modal").style.display = "flex";
+    }
+
+    function closeModal() { document.getElementById("modal").style.display = "none"; }
+    function toggleMenu(e) { e.stopPropagation(); const m = document.getElementById("dropMenu"); m.style.display = (m.style.display==="block") ? "none" : "block"; }
+    function hideMenu() { document.getElementById("dropMenu").style.display = "none"; }
+    function setTheme(t) { document.body.className = (t==='dark') ? 'dark-mode' : ''; hideMenu(); }
+    function move(s) { currentD.setMonth(currentD.getMonth() + s); render(); }
+    function jump() { currentD.setFullYear(document.getElementById("ySelect").value); currentD.setMonth(document.getElementById("mSelect").value); render(); }
+    function goToday() { currentD = new Date(); render(); }
+    function shareApp() { if(navigator.share) navigator.share({title:'Calendar', url:window.location.href}); }
+    function showHolidays() { alert("ছুটি: ২১ ফেব, ২৬ মার্চ, ১৪ এপ্রিল, ১ মে, ১৬ ডিসে"); }
+
+    const ms = document.getElementById("mSelect"), ys = document.getElementById("ySelect");
+    engMonths.forEach((m, i) => ms.add(new Option(m, i)));
+    for (let i = 1900; i <= 2100; i++) ys.add(new Option(i, i));
+
+    render();
+</script>
+</body>
+</html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate Pro Calendar v6.0</title>
+    <style>
+        :root {
+            --primary: #4834d4;
+            --bg-body: #f0f2f5;
+            --bg-card: #ffffff;
+            --current-month-bg: #e3f2fd;
+            --other-month-bg: #f8f9fa;
+            --text-main: #2d3436;
+            --text-muted: #b2bec3;
+            --border-color: #d1d8e0;
+        }
+
+        .dark-mode {
+            --bg-body: #121212;
+            --bg-card: #1e1e1e;
+            --current-month-bg: #2d2d2d;
+            --other-month-bg: #1a1a1a;
+            --text-main: #e0e0e0;
+            --text-muted: #555555;
+            --border-color: #333333;
+        }
+
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0; transition: 0.3s;
+        }
+
+        .calendar-card {
+            width: 95%; max-width: 450px; background: var(--bg-card); border-radius: 24px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.15); padding: 20px; position: relative;
+        }
+
+        .top-action-bar {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+
+        .search-group { display: flex; gap: 5px; align-items: center; }
+
+        .custom-select {
+            padding: 6px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background: var(--bg-card);
+            color: var(--text-main);
+            font-size: 0.85rem;
+        }
+
+        .today-btn {
+            background: #00b894;
+            color: white;
+            border: none;
+            padding: 7px 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 0.85rem;
+        }
+
+        .menu-container { position: relative; }
+        .dots-btn { font-size: 24px; cursor: pointer; padding: 0 5px; color: var(--text-main); }
+        
+        .dropdown-menu {
+            display: none; position: absolute; right: 0; top: 35px; width: 200px;
+            background: var(--bg-card); border: 1px solid var(--border-color);
+            border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); z-index: 5000;
+        }
+        .menu-item { 
+            padding: 10px 15px; cursor: pointer; border-bottom: 1px solid var(--border-color); 
+            display: flex; align-items: center; gap: 10px; font-size: 14px; 
+        }
+        .menu-item:hover { background: var(--current-month-bg); }
+
         /* নেভিগেশন স্টাইল */
         .nav-controls {
             display: flex;
